@@ -68,7 +68,7 @@ def _apply_windows_sysroot_transformations(repository_ctx, winarchive_tools_dir)
     if not sysroot.exists:
         return
     if not _repository_fs_is_case_sensitive(repository_ctx):
-        print("Skipping windows sysroot transformations on a case-insensitive filesystem")
+        # print("Skipping windows sysroot transformations on a case-insensitive filesystem")
         return
 
     all_files = []

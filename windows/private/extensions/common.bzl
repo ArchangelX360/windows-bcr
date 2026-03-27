@@ -62,6 +62,8 @@ def resolve_installer_manifest_from_module_facts(module_ctx, config, key, schema
     Args:
       module_ctx: Module context
       config: Configuration containing either the Visual Studio installer manifest URL and integrity, or the Visual Studio channel URL from which to resolve the Visual Studio installer manifest URL
+      key: Module fact key from which to retrieve/store the resolution result
+      schema_version: Schema version of the module fact
 
     Returns:
       A struct containing the downloaded Visual Studio installer manifest in a form of a resolved Bazel module fact
@@ -112,14 +114,12 @@ def _compact_installer_manifest(installer_manifest):
     }
 
 def _resolve_installer_manifest(module_ctx, config, output_dir):
+    visual_studio_installer_manifest_url = ""
+    visual_studio_installer_manifest_integrity = ""
+    visual_studio_installer_manifest_sha256 = ""
     if config.visual_studio_installer_manifest_url:
-        installer_manifest = download_json(
-            module_ctx,
-            config.visual_studio_installer_manifest_url,
-            "{}/installer_manifest.json".format(output_dir),
-            config.visual_studio_installer_manifest_integrity,
-        )
         visual_studio_installer_manifest_url = config.visual_studio_installer_manifest_url
+        visual_studio_installer_manifest_integrity = config.visual_studio_installer_manifest_integrity
     else:
         channel_manifest = download_json(
             module_ctx,
@@ -127,25 +127,28 @@ def _resolve_installer_manifest(module_ctx, config, output_dir):
             "{}/channel_manifest.json".format(output_dir),
         ).json
 
-        found = False
         for item in channel_manifest.get("channelItems", []):
             if item.get("id", "") != _VISUAL_STUDIO_MANIFEST_COMPONENT:
                 continue
             payloads = item.get("payloads", [])
             if not payloads:
                 fail("channel manifest entry {} has no payloads".format(_VISUAL_STUDIO_MANIFEST_COMPONENT))
-            visual_studio_installer_manifest_url = payloads[0].get("url", "")
+            vc_manifest_component_package = payloads[0]
+            visual_studio_installer_manifest_url = vc_manifest_component_package.get("url", "")
             if not visual_studio_installer_manifest_url:
                 fail("channel manifest entry {} has no payload url".format(_VISUAL_STUDIO_MANIFEST_COMPONENT))
-            installer_manifest = download_json(
-                module_ctx,
-                visual_studio_installer_manifest_url,
-                "{}/installer_manifest.json".format(output_dir),
-            )
-            found = True
+            visual_studio_installer_manifest_sha256 = vc_manifest_component_package.get("sha256", "")
             break
-        if not found:
+        if not visual_studio_installer_manifest_url:
             fail("failed to find installer manifest URL in Visual Studio channel manifest")
+
+    installer_manifest = download_json(
+        module_ctx,
+        visual_studio_installer_manifest_url,
+        "{}/installer_manifest.json".format(output_dir),
+        visual_studio_installer_manifest_integrity,
+        visual_studio_installer_manifest_sha256,
+    )
 
     return struct(
         url = visual_studio_installer_manifest_url,
@@ -233,7 +236,7 @@ def _host_key(repository_ctx):
         return ""
     return os_token + "_" + arch_token
 
-def download_json(module_ctx, url, output, integrity = ""):
+def download_json(module_ctx, url, output, integrity = "", sha256 = ""):
     """Downloads the JSON pointed by the given URL to the given output path.
 
     Args:
@@ -241,6 +244,7 @@ def download_json(module_ctx, url, output, integrity = ""):
       url: A URL pointing to a JSON file
       output: the path where the downloaded JSON will be written
       integrity: the integrity against which to check the downloaded content
+      sha256: the integrity against which to check the downloaded content as a sha256 hash
 
     Returns:
       A struct the decoded JSON, and the integrity
@@ -250,8 +254,12 @@ def download_json(module_ctx, url, output, integrity = ""):
         "url": url,
         "output": output,
     }
+    if integrity and sha256:
+        fail("either `integrity` or `sha256` must be set, not both")
     if integrity:
         download_kwargs["integrity"] = integrity
+    if sha256:
+        download_kwargs["sha256"] = sha256
     download_info = module_ctx.download(**download_kwargs)
     decoded = json.decode(module_ctx.read(output), default = None)
     if decoded == None:
