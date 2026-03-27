@@ -1,9 +1,6 @@
 """bzlmod extension for assembling an MSVC runtime repository."""
 
-load(":common.bzl", "COMMON_MODULE_EXTENSION_ATTR", "COMMON_REPOSITORY_ATTR", "DEFAULT_ARCHITECTURES", "DEFAULT_VS_CHANNEL_URL", "ensure_winarchive_tools_binary", "resolve_installer_manifest_from_module_facts", "run_winarchive_tools")
-
-_MSVC_RUNTIME_FACTS_KEY = "msvc_runtime_v1"
-_MSVC_RUNTIME_FACTS_SCHEMA_VERSION = 2
+load(":common.bzl", "COMMON_MODULE_EXTENSION_ATTR", "COMMON_REPOSITORY_ATTR", "DEFAULT_ARCHITECTURES", "DEFAULT_VS_CHANNEL_URL", "INSTALLER_MANIFEST_FACTS_KEY", "download_installer_manifest", "ensure_winarchive_tools_binary", "resolve_installer_manifest_from_module_facts", "run_winarchive_tools")
 
 _ARCH_TO_MSVC_COMPONENT = {
     "arm": "Microsoft.VisualStudio.Component.VC.Tools.ARM",
@@ -98,10 +95,13 @@ def _msvc_runtime_repository_impl(repository_ctx):
     for arch in architectures:
         has_arch[arch] = True
 
-    installer_manifest_json = json.decode(repository_ctx.attr.installer_manifest_json, default = None)
-    if installer_manifest_json == None:
-        fail("failed to decode `@msvc_runtime` `installer_manifest_json`")
-    packages = _collect_vctools_packages(installer_manifest_json, repository_ctx.attr.architectures)
+    installer_manifest = download_installer_manifest(
+        repository_ctx,
+        repository_ctx.attr.installer_manifest_url,
+        repository_ctx.attr.installer_manifest_integrity,
+        repository_ctx.attr.installer_manifest_sha256,
+    )
+    packages = _collect_vctools_packages(installer_manifest, repository_ctx.attr.architectures)
 
     # Download/extract VSIX packages to look for the MSVC runtime pieces
 
@@ -229,7 +229,13 @@ def _msvc_runtime_extension_impl(module_ctx):
     config = _read_configure_tag(module_ctx)
     _check_msvc_license_requirements(module_ctx)
 
-    facts = resolve_installer_manifest_from_module_facts(module_ctx, config, _MSVC_RUNTIME_FACTS_KEY, _MSVC_RUNTIME_FACTS_SCHEMA_VERSION)
+    installer_manifest = resolve_installer_manifest_from_module_facts(
+        module_ctx,
+        config.visual_studio_channel_url,
+        config.visual_studio_installer_manifest_url,
+        config.visual_studio_installer_manifest_integrity,
+        INSTALLER_MANIFEST_FACTS_KEY,
+    )
 
     _msvc_runtime_repository(
         name = "msvc_runtime",
@@ -237,11 +243,13 @@ def _msvc_runtime_extension_impl(module_ctx):
         winarchive_tools_urls = config.winarchive_tools_urls,
         winarchive_tools_integrity = config.winarchive_tools_integrity,
         architectures = config.architectures,
-        installer_manifest_json = json.encode(facts["installer_manifest"]),
+        installer_manifest_url = installer_manifest["url"],
+        installer_manifest_integrity = installer_manifest["integrity"],
+        installer_manifest_sha256 = installer_manifest["sha256"],
     )
 
     return module_ctx.extension_metadata(
-        facts = {_MSVC_RUNTIME_FACTS_KEY: facts},
+        facts = {INSTALLER_MANIFEST_FACTS_KEY: installer_manifest},
         root_module_direct_deps = ["msvc_runtime"],
         root_module_direct_dev_deps = [],
     )

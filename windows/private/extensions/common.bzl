@@ -21,6 +21,9 @@ _DEFAULT_WINARCHIVE_TOOLS_INTEGRITY = {
     "windows_arm64": "sha256-eYuZhS4YCACovPpw0yzjtEXg3j96rFCtrwpOtKCmMFw=",
 }
 
+INSTALLER_MANIFEST_DOWNLOADS_DIR = "installer_manifest_downloads"
+INSTALLER_MANIFEST_FACTS_KEY = "visual_studio_installer_manifest_v1"
+
 _VISUAL_STUDIO_MANIFEST_COMPONENT = "Microsoft.VisualStudio.Manifests.VisualStudio"
 
 _COMMON_ATTR = {
@@ -37,8 +40,14 @@ _COMMON_ATTR = {
 }
 
 COMMON_REPOSITORY_ATTR = _COMMON_ATTR | {
-    "installer_manifest_json": attr.string(
-        doc = "Compacted JSON representing the resolved Visual Studio installer manifest subset used by the repositories",
+    "installer_manifest_url": attr.string(
+        doc = "URL of the resolved/specified Visual Studio installer manifest",
+    ),
+    "installer_manifest_integrity": attr.string(
+        doc = "Optional integrity of the resolved/specified Visual Studio installer manifest",
+    ),
+    "installer_manifest_sha256": attr.string(
+        doc = "Optional integrity (as sha256 hash) of the resolved/specified Visual Studio installer manifest",
     ),
 }
 
@@ -56,14 +65,20 @@ COMMON_MODULE_EXTENSION_ATTR = _COMMON_ATTR | {
     ),
 }
 
-def resolve_installer_manifest_from_module_facts(module_ctx, config, key, schema_version):
+def resolve_installer_manifest_from_module_facts(
+        module_ctx,
+        visual_studio_channel_url,
+        visual_studio_installer_manifest_url,
+        visual_studio_installer_manifest_integrity,
+        key):
     """Resolves the Visual Studio installer manifest from Bazel module facts if existing, or from passed URLs if not.
 
     Args:
       module_ctx: Module context
-      config: Configuration containing either the Visual Studio installer manifest URL and integrity, or the Visual Studio channel URL from which to resolve the Visual Studio installer manifest URL
+      visual_studio_channel_url: Visual Studio channel URL from which to resolve the Visual Studio installer manifest URL, if not specified
+      visual_studio_installer_manifest_url: Visual Studio installer manifest URL
+      visual_studio_installer_manifest_integrity: (optional) Visual Studio installer manifest integrity
       key: Module fact key from which to retrieve/store the resolution result
-      schema_version: Schema version of the module fact
 
     Returns:
       A struct containing the downloaded Visual Studio installer manifest in a form of a resolved Bazel module fact
@@ -71,90 +86,73 @@ def resolve_installer_manifest_from_module_facts(module_ctx, config, key, schema
 
     cached = module_ctx.facts.get(key)
     requested = {
-        "visual_studio_installer_manifest_integrity": config.visual_studio_installer_manifest_integrity,
-        "visual_studio_installer_manifest_url": config.visual_studio_installer_manifest_url,
-        "visual_studio_channel_url": config.visual_studio_channel_url,
+        "visual_studio_channel_url": visual_studio_channel_url,
+        "visual_studio_installer_manifest_url": visual_studio_installer_manifest_url,
+        "visual_studio_installer_manifest_integrity": visual_studio_installer_manifest_integrity,
     }
-    if cached != None and cached.get("schema_version") == schema_version and cached.get("requested") == requested:
+    if cached != None and cached.get("requested") == requested:
         return cached
     else:
-        installer_manifest = _resolve_installer_manifest(module_ctx, config, "windows_sdk_resolution")
-        resolution = {
-            "installer_manifest_url": installer_manifest.url,
-            "installer_manifest_integrity": installer_manifest.integrity,
-            "installer_manifest": installer_manifest.json,
-            "schema_version": schema_version,
+        if not visual_studio_installer_manifest_url:  # if there is not user-defined Visual Studio installer URL, we derive it from the channel instead
+            download_infos = _resolve_installer_manifest_download_info_from_channel(module_ctx, visual_studio_channel_url)
+        else:
+            download_infos = struct(
+                url = visual_studio_installer_manifest_url,
+                integrity = visual_studio_installer_manifest_integrity,
+                sha256 = "",
+            )
+        return {
+            "request": requested,
+            "url": download_infos.url,
+            "integrity": download_infos.integrity,
+            "sha256": download_infos.sha256,
         }
-        resolution["requested"] = requested
-        return resolution
 
-def _compact_payload(payload):
-    compact = {
-        "fileName": payload["fileName"],
-        "url": payload["url"],
-    }
-    if payload.get("sha256", ""):
-        compact["sha256"] = payload["sha256"]
-    return compact
-
-def _compact_installer_manifest_package(pkg):
-    compact = {
-        "id": pkg.get("id", ""),
-        "payloads": [_compact_payload(payload) for payload in pkg.get("payloads", [])],
-    }
-    if pkg.get("type", ""):
-        compact["type"] = pkg["type"]
-    if pkg.get("dependencies", {}):
-        compact["dependencies"] = sorted(pkg["dependencies"].keys())
-    return compact
-
-def _compact_installer_manifest(installer_manifest):
-    return {
-        "packages": [_compact_installer_manifest_package(pkg) for pkg in installer_manifest.get("packages", [])],
-    }
-
-def _resolve_installer_manifest(module_ctx, config, output_dir):
-    visual_studio_installer_manifest_url = ""
-    visual_studio_installer_manifest_integrity = ""
-    visual_studio_installer_manifest_sha256 = ""
-    if config.visual_studio_installer_manifest_url:
-        visual_studio_installer_manifest_url = config.visual_studio_installer_manifest_url
-        visual_studio_installer_manifest_integrity = config.visual_studio_installer_manifest_integrity
-    else:
-        channel_manifest = download_json(
-            module_ctx,
-            config.visual_studio_channel_url,
-            "{}/channel_manifest.json".format(output_dir),
-        ).json
-
-        for item in channel_manifest.get("channelItems", []):
-            if item.get("id", "") != _VISUAL_STUDIO_MANIFEST_COMPONENT:
-                continue
-            payloads = item.get("payloads", [])
-            if not payloads:
-                fail("channel manifest entry {} has no payloads".format(_VISUAL_STUDIO_MANIFEST_COMPONENT))
-            vc_manifest_component_package = payloads[0]
-            visual_studio_installer_manifest_url = vc_manifest_component_package.get("url", "")
-            if not visual_studio_installer_manifest_url:
-                fail("channel manifest entry {} has no payload url".format(_VISUAL_STUDIO_MANIFEST_COMPONENT))
-            visual_studio_installer_manifest_sha256 = vc_manifest_component_package.get("sha256", "")
-            break
-        if not visual_studio_installer_manifest_url:
-            fail("failed to find installer manifest URL in Visual Studio channel manifest")
-
-    installer_manifest = download_json(
+def _resolve_installer_manifest_download_info_from_channel(module_ctx, channel_url):
+    channel_manifest = download_json(
         module_ctx,
-        visual_studio_installer_manifest_url,
-        "{}/installer_manifest.json".format(output_dir),
-        visual_studio_installer_manifest_integrity,
-        visual_studio_installer_manifest_sha256,
-    )
+        channel_url,
+        "{}/channel_manifest.json".format(INSTALLER_MANIFEST_DOWNLOADS_DIR),
+    ).json
 
-    return struct(
-        url = visual_studio_installer_manifest_url,
-        integrity = installer_manifest.integrity,
-        json = _compact_installer_manifest(installer_manifest.json),
-    )
+    for item in channel_manifest.get("channelItems", []):
+        if item.get("id", "") != _VISUAL_STUDIO_MANIFEST_COMPONENT:
+            continue
+        payloads = item.get("payloads", [])
+        if not payloads:
+            fail("channel manifest entry {} has no payloads".format(_VISUAL_STUDIO_MANIFEST_COMPONENT))
+        vc_manifest_component_package = payloads[0]
+        visual_studio_installer_manifest_url = vc_manifest_component_package.get("url", "")
+        if not visual_studio_installer_manifest_url:
+            fail("channel manifest entry {} is missing the expected payload url".format(_VISUAL_STUDIO_MANIFEST_COMPONENT))
+        return struct(
+            url = visual_studio_installer_manifest_url,
+            integrity = "",
+            sha256 = vc_manifest_component_package.get("sha256", ""),
+        )
+
+    fail("failed to find installer manifest URL in Visual Studio channel manifest")
+
+def download_installer_manifest(module_ctx, installer_manifest_url, installer_manifest_integrity, installer_manifest_sha256):
+    """Downloads the Visual Studio installer manifest.
+
+    Args:
+      module_ctx: Module context.
+      installer_manifest_url: URL of the Visual Studio installer manifest
+      installer_manifest_integrity: Optional integrity of the Visual Studio installer manifest against which to check the downloaded file content
+      installer_manifest_sha256: Optional integrity (as a sha256 hash) of the Visual Studio installer manifest against which to check the downloaded file content
+
+    Returns:
+      The Visual Studio installer manifest as a struct from the decoded JSON
+    """
+
+    return download_json(
+        module_ctx,
+        installer_manifest_url,
+        "{}/installer_manifest.json".format(INSTALLER_MANIFEST_DOWNLOADS_DIR),
+        installer_manifest_integrity,
+        installer_manifest_sha256,
+    ).json
 
 def ensure_winarchive_tools_binary(repository_ctx, extension_name):
     """Downloads the host winarchive-tools binary for an extension.
