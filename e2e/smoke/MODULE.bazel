@@ -12,7 +12,7 @@ local_path_override(
 
 msvc_runtime = use_extension("@windows//windows:extensions.bzl", "msvc_runtime")
 msvc_runtime.configure(
-    msvc_version = "14.44.35207",
+    msvc_version = "14.50.35717",
 )
 use_repo(msvc_runtime, "msvc_runtime")
 
