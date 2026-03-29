@@ -45,7 +45,7 @@ See https://visualstudio.microsoft.com/license-terms for more information.
 
 Sadly, that module is not perfect, there are several major limitations:
 
-- Case-sensitive systems are poorly supported by the inefficient `transformations` attribute, we plan to support `vfsoverlay` configuration in the future [see #3](https://github.com/ArchangelX360/windows-bcr/issues/3)
+- Case-sensitive systems are poorly supported by the inefficient `transformations` attribute, we plan to support `vfsoverlay` configuration in the future [see #3](https://github.com/hermeticbuild/windows-bcr/issues/3)
 - The specified MSVC runtime version must be present in the Visual Studio installer manifest specified or resolved from the Visual Studio channel, it cannot be any version
 - Declaring multiple repositories for multiple versions of the MSVC runtime to coexist is unsupported
 - Declaring multiple repositories for multiple versions of the Windows SDK to coexist is unsupported

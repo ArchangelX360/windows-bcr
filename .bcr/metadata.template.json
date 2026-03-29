@@ -1,5 +1,5 @@
 {
-  "homepage": "https://github.com/ArchangelX360/windows-bcr",
+  "homepage": "https://github.com/hermeticbuild/windows-bcr",
   "maintainers": [
     {
       "name": "Titouan Bion",
@@ -7,7 +7,7 @@
       "github_user_id": 4418480
     }
   ],
-  "repository": ["github:ArchangelX360/windows-bcr"],
+  "repository": ["github:hermeticbuild/windows-bcr"],
   "versions": [],
   "yanked_versions": {}
 }
