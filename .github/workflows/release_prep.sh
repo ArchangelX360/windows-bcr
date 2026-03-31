@@ -38,5 +38,5 @@ bazel_dep(name = "windows", version = "${TAG:1}")
 Unsupported.
 EOF
 
-awk 'f;/--SNIP--/{f=1}' e2e/smoke/WORKSPACE.bazel
-echo "\`\`\`"
+# awk 'f;/--SNIP--/{f=1}' e2e/smoke/WORKSPACE.bazel
+# echo "\`\`\`"
