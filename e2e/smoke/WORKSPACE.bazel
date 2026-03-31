@@ -1,6 +1,6 @@
 # Override http_archive for local testing
 local_repository(
-    name = "windows",
+    name = "windows_support",
     path = "../..",
 )
 
@@ -14,6 +14,6 @@ local_repository(
 # you should fetch it *before* calling this.
 # Alternatively, you can skip calling this function, so long as you've
 # already fetched all the dependencies.
-load("@windows//windows:repositories.bzl", "windows_dependencies")
+load("@windows_support//windows:repositories.bzl", "windows_dependencies")
 
 windows_dependencies()

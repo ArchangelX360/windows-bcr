@@ -1,16 +1,16 @@
 bazel_dep(
-    name = "windows",
+    name = "windows_support",
     version = "0.0.0",
     dev_dependency = True,
 )
 bazel_dep(name = "bazel_skylib", version = "1.8.2", dev_dependency = True)
 
 local_path_override(
-    module_name = "windows",
+    module_name = "windows_support",
     path = "../..",
 )
 
-msvc_runtime = use_extension("@windows//windows:extensions.bzl", "msvc_runtime")
+msvc_runtime = use_extension("@windows_support//windows:extensions.bzl", "msvc_runtime")
 msvc_runtime.configure(
     msvc_version = "14.50.35717",
     visual_studio_installer_manifest_integrity = "sha256-qOhU+p8/uurCfXME4pfxZg1xN0ATid61fPeYPzPBb+8=",
@@ -18,7 +18,7 @@ msvc_runtime.configure(
 )
 use_repo(msvc_runtime, "msvc_runtime")
 
-windows_sdk = use_extension("@windows//windows:extensions.bzl", "windows_sdk")
+windows_sdk = use_extension("@windows_support//windows:extensions.bzl", "windows_sdk")
 windows_sdk.configure(
     transformations = {
         # TODO: change using vfs instead!

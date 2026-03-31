@@ -1,5 +1,5 @@
 {
-  "homepage": "https://github.com/hermeticbuild/windows-bcr",
+  "homepage": "https://github.com/hermeticbuild/windows_support",
   "maintainers": [
     {
       "name": "Titouan Bion",
@@ -7,7 +7,7 @@
       "github_user_id": 4418480
     }
   ],
-  "repository": ["github:hermeticbuild/windows-bcr"],
+  "repository": ["github:hermeticbuild/windows_support"],
   "versions": [],
   "yanked_versions": {}
 }
