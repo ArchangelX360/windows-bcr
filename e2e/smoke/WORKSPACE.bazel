@@ -6,14 +6,6 @@ local_repository(
 
 #---SNIP--- Below here is re-used in the workspace snippet published on releases
 
-######################
-# windows setup #
-######################
-# Fetches the rules_mylang dependencies.
-# If you want to have a different version of some dependency,
-# you should fetch it *before* calling this.
-# Alternatively, you can skip calling this function, so long as you've
-# already fetched all the dependencies.
 load("@windows_support//windows:repositories.bzl", "windows_dependencies")
 
 windows_dependencies()
