@@ -367,10 +367,18 @@ def _msvc_runtime_extension_impl(module_ctx):
         installer_manifest_integrity = installer_manifest["integrity"],
     )
 
+    metadata_kwargs = {
+        "facts": {_INSTALLER_MANIFEST_FACTS_KEY: installer_manifest},
+    }
+    if module_ctx.root_module_has_non_dev_dependency:
+        metadata_kwargs["root_module_direct_deps"] = [repository_name]
+        metadata_kwargs["root_module_direct_dev_deps"] = []
+    else:
+        metadata_kwargs["root_module_direct_deps"] = []
+        metadata_kwargs["root_module_direct_dev_deps"] = [repository_name]
+
     return module_ctx.extension_metadata(
-        facts = {_INSTALLER_MANIFEST_FACTS_KEY: installer_manifest},
-        root_module_direct_deps = [repository_name],
-        root_module_direct_dev_deps = [],
+        **metadata_kwargs
     )
 
 msvc_runtime = module_extension(

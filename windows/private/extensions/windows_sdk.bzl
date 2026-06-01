@@ -324,10 +324,16 @@ def _windows_sdk_extension_impl(module_ctx):
         architectures = config.architectures,
     )
 
-    return module_ctx.extension_metadata(
-        root_module_direct_deps = [repository_name],
-        root_module_direct_dev_deps = [],
-    )
+    if module_ctx.root_module_has_non_dev_dependency:
+        return module_ctx.extension_metadata(
+            root_module_direct_deps = [repository_name],
+            root_module_direct_dev_deps = [],
+        )
+    else:
+        return module_ctx.extension_metadata(
+            root_module_direct_deps = [],
+            root_module_direct_dev_deps = [repository_name],
+        )
 
 windows_sdk = module_extension(
     implementation = _windows_sdk_extension_impl,
