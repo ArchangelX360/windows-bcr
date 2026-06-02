@@ -222,7 +222,7 @@
   "moduleExtensions": {
     "//windows:extensions.bzl%msvc_runtime": {
       "general": {
-        "bzlTransitiveDigest": "XHMQotlVp9tDg9HNucZVhWZ/nXcGT7O6UOCahJpJe/Y=",
+        "bzlTransitiveDigest": "+cRtqyngA7nILb7W85BmcWXVbeFCd+MRsSY2DpSAbaE=",
         "usagesDigest": "oIQkiqNrV2CIFBHapOnG8LKQhVBRkZg3Ssd7whsl6L0=",
         "recordedInputs": [
           "REPO_MAPPING:,bazel_tools bazel_tools"
@@ -253,8 +253,8 @@
     },
     "//windows:extensions.bzl%windows_sdk": {
       "general": {
-        "bzlTransitiveDigest": "XHMQotlVp9tDg9HNucZVhWZ/nXcGT7O6UOCahJpJe/Y=",
-        "usagesDigest": "ETaN/K0rjOmNKkfDGfeItGQ/5mceR8aYfvGRSndKQ18=",
+        "bzlTransitiveDigest": "+cRtqyngA7nILb7W85BmcWXVbeFCd+MRsSY2DpSAbaE=",
+        "usagesDigest": "eUYrrIZ3OcVvmZC8yt3OMRe6PSjHUu1Suu6vgqnuwYE=",
         "recordedInputs": [
           "REPO_MAPPING:,bazel_tools bazel_tools"
         ],
@@ -269,6 +269,10 @@
                 "Microsoft.Windows.SDK.CPP.arm64": "sha256-A7wMA9Q5zvhQdLvNQl+dXTptO0Z5Z6zSHaO6bf7q+mc="
               },
               "transformations": {
+                "base/c/Include/10.0.26100.0/shared/driverspecs.h": "base/c/Include/10.0.26100.0/shared/DriverSpecs.h",
+                "base/c/Include/10.0.26100.0/shared/specstrings.h": "base/c/Include/10.0.26100.0/shared/SpecStrings.h",
+                "base/c/Include/10.0.26100.0/um/ole2.h": "base/c/Include/10.0.26100.0/um/Ole2.h",
+                "base/c/Include/10.0.26100.0/um/olectl.h": "base/c/Include/10.0.26100.0/um/OleCtl.h",
                 "**/*.h": "lowercase",
                 "**/*.lib": "lowercase",
                 "**/*.Lib": "lowercase"

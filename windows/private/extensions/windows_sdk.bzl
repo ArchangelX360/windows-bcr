@@ -291,26 +291,25 @@ _windows_sdk_repository = repository_rule(
 )
 
 def _read_configure_tag(module_ctx):
-    root_tags = []
-    non_root_tags = []
-    for mod in module_ctx.modules:
-        if mod.is_root:
-            root_tags.extend(mod.tags.configure)
-        else:
-            non_root_tags.extend(mod.tags.configure)
+    non_root_tag = None
 
-    if len(root_tags) > 1:
-        fail("Only one windows_sdk.configure(...) tag is supported in the root module.")
-    if root_tags:
-        return root_tags[0]
-    if non_root_tags:
-        return non_root_tags[0]
-    return struct(
-        windows_sdk_version = "",
-        windows_sdk_integrity = {},
-        transformations = {},
-        architectures = _DEFAULT_ARCHITECTURES,
-    )
+    for mod in module_ctx.modules:
+        configure_tags = [tag for tag in mod.tags.configure]
+        if len(configure_tags) > 1:
+            fail("Only one windows_sdk.configure(...) tag is supported per module.")
+
+        if not configure_tags:
+            continue
+
+        if mod.is_root:
+            return configure_tags[0]
+
+        non_root_tag = configure_tags[0]
+
+    if non_root_tag != None:
+        return non_root_tag
+
+    fail("Missing windows_sdk.configure(...): set windows_sdk.configure(...) in your MODULE.bazel")
 
 def _windows_sdk_extension_impl(module_ctx):
     config = _read_configure_tag(module_ctx)

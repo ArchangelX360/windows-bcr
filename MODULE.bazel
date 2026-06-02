@@ -22,6 +22,10 @@ use_repo(msvc_runtime, "msvc_runtime")
 windows_sdk = use_extension("//windows:extensions.bzl", "windows_sdk")
 windows_sdk.configure(
     transformations = {
+        "base/c/Include/10.0.26100.0/shared/driverspecs.h": "base/c/Include/10.0.26100.0/shared/DriverSpecs.h",
+        "base/c/Include/10.0.26100.0/shared/specstrings.h": "base/c/Include/10.0.26100.0/shared/SpecStrings.h",
+        "base/c/Include/10.0.26100.0/um/ole2.h": "base/c/Include/10.0.26100.0/um/Ole2.h",
+        "base/c/Include/10.0.26100.0/um/olectl.h": "base/c/Include/10.0.26100.0/um/OleCtl.h",
         "**/*.h": "lowercase",
         "**/*.lib": "lowercase",
         "**/*.Lib": "lowercase",
