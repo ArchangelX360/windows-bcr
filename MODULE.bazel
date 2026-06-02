@@ -1,11 +1,4 @@
-module(
-    name = "windows_support",
-
-    # NOTE:
-    version = "",
-    # Always leave version unset or set to "" (the default) https://bazelbuild.slack.com/archives/CA31HN1T3/p1750406404452179
-    compatibility_level = 0,
-)
+module(name = "windows_support")
 
 bazel_dep(name = "bazel_skylib", version = "1.9.0")
 bazel_dep(name = "package_metadata", version = "0.0.7")
