@@ -50,7 +50,12 @@ def _keep_exposed_windows_sdk_files(repository_ctx, sysroot_dir, include_version
         _keep_only_children(repository_ctx, repository_ctx.path("{}/{}/c/um".format(sysroot_dir, arch)), [arch])
 
 def _windows_sdk_package_url(package_name, version):
-    return "https://www.nuget.org/api/v2/package/{}/{}".format(package_name, version.lower())
+    pkg_id = package_name.lower()
+    pkg_version = version.lower()
+    return "https://api.nuget.org/v3-flatcontainer/{id}/{ver}/{id}.{ver}.nupkg".format(
+        id = pkg_id,
+        ver = pkg_version,
+    )
 
 def _integrity_for_package(integrity_by_package, package_name):
     return integrity_by_package.get(package_name, integrity_by_package.get(package_name, ""))
