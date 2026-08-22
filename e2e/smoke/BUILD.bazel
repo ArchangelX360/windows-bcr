@@ -7,6 +7,12 @@ alias(
 )
 
 alias(
+    name = "configured_msvc_runtime_vc_redist",
+    actual = "@msvc_runtime//:vc_redist",
+    tags = ["manual"],
+)
+
+alias(
     name = "configured_windows_sdk_repo",
     actual = "@windows_sdk//:all_files",
     tags = ["manual"],
@@ -16,6 +22,7 @@ build_test(
     name = "smoke_test",
     targets = [
         ":configured_msvc_runtime_repo",
+        ":configured_msvc_runtime_vc_redist",
         ":configured_windows_sdk_repo",
     ],
 )

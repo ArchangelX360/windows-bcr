@@ -41,6 +41,33 @@ To use `@msvc_runtime` targets:
 
 See https://visualstudio.microsoft.com/license-terms for more information.
 
+### VC redistributable DLLs
+
+`@msvc_runtime` also exposes the Visual C++ redistributable runtime DLLs (`vcruntime140.dll`, `vcruntime140_1.dll`, `msvcp140*.dll`, `concrt140.dll`, `vcomp140.dll`, `vcamp140.dll`, ...), which binaries built against the dynamic CRT (`/MD`) need at runtime:
+
+- `@msvc_runtime//:vc_redist` — release redist DLLs for the target platform (selects between the targets below)
+- `@msvc_runtime//:vc_redist_x64` / `@msvc_runtime//:vc_redist_arm64` — per-architecture release redist DLLs
+- `@msvc_runtime//:vc_redist_debug` (and `:vc_redist_debug_x64` / `:vc_redist_debug_arm64`) — debug CRT DLLs (`vcruntime140d.dll`, `msvcp140d.dll`, ...), needed to run binaries built against the debug CRT (`/MDd`). ⚠️ These are **not redistributable** per the Visual Studio license: use them for development and testing only, never ship them.
+
+For example, to package the redist DLLs next to a binary:
+
+```starlark
+load("@rules_pkg//pkg:zip.bzl", "pkg_zip")
+
+pkg_zip(
+    name = "my_app_dist",
+    srcs = [
+        ":my_app",
+        "@msvc_runtime//:vc_redist",
+    ],
+)
+```
+
+Notes:
+
+- the redist DLLs only exist for the `x64`, `x86` and `arm64` architectures (no VC redistributable exists for `arm` or `arm64ec`, the latter uses the x64/arm64 redists)
+- only the desktop flavor of the redist is exposed, the `onecore` flavor is not kept
+
 ## Limitations
 
 Sadly, that module is not perfect, there are several major limitations:

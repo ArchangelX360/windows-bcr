@@ -15,6 +15,13 @@ _ARCH_TO_MSVC_COMPONENT = {
     "x64": "Microsoft.VisualStudio.Component.VC.Tools.x86.x64",
     "x86": "Microsoft.VisualStudio.Component.VC.Tools.x86.x64",
 }
+_ARCH_TO_REDIST_PACKAGE = {
+    "arm": None,  # no modern desktop redist package
+    "arm64": "Microsoft.VisualCpp.CRT.Redist.ARM64",
+    "arm64ec": None,  # arm64ec binaries run against the x64/arm64 redists
+    "x64": "Microsoft.VisualCpp.CRT.Redist.X64",
+    "x86": "Microsoft.VisualCpp.CRT.Redist.X86",
+}
 
 def _check_msvc_license_requirements(ctx):
     approval = ctx.getenv(_MSVC_RUNTIME_VISUAL_STUDIO_EULA_ENV)
@@ -131,16 +138,24 @@ def _download_json(module_ctx, url, output, integrity = ""):
 def _collect_vctools_packages(installer_manifest, architectures):
     packages_by_id = {}
     for pkg in installer_manifest.get("packages", []):
-        packages_by_id[pkg.get("id", "")] = pkg
+        packages_by_id[pkg.get("id", "").lower()] = pkg
 
     pending = []
     for arch in architectures:
         component = _ARCH_TO_MSVC_COMPONENT.get(arch)
         if component == None:
             fail("unknown architecture {}, do not know the correct MSVC tools package".format(arch))
-        if component not in packages_by_id:
+        if component.lower() not in packages_by_id:
             fail("failed to find Visual Studio package {} in installer manifest".format(component))
-        pending.append(component)
+        pending.append(component.lower())
+
+        # The desktop VC redist packages are not reliably part of the tools
+        # components' dependency closure, request them explicitly.
+        redist_package = _ARCH_TO_REDIST_PACKAGE.get(arch)
+        if redist_package:
+            if redist_package.lower() not in packages_by_id:
+                fail("failed to find VC redist package {} in installer manifest".format(redist_package))
+            pending.append(redist_package.lower())
 
     selected = {}
     seen = {}
@@ -159,9 +174,9 @@ def _collect_vctools_packages(installer_manifest, architectures):
             selected[package_id] = pkg
             dependencies = pkg.get("dependencies", {})
             if type(dependencies) == "list":
-                next_frontier.extend(sorted(dependencies))
+                next_frontier.extend(sorted([dep.lower() for dep in dependencies]))
             else:
-                next_frontier.extend(sorted(dependencies.keys()))
+                next_frontier.extend(sorted([dep.lower() for dep in dependencies.keys()]))
         frontier = next_frontier
 
     vctools_packages = {}
@@ -172,7 +187,7 @@ def _collect_vctools_packages(installer_manifest, architectures):
         payloads = pkg.get("payloads", [])
         if not payloads:
             fail("package {} has no payloads".format(package_id))
-        vctools_packages[package_id] = pkg
+        vctools_packages[pkg.get("id", "")] = pkg
 
     return vctools_packages
 
@@ -189,7 +204,37 @@ def _keep_only_children(repository_ctx, directory, child_names):
             continue
         repository_ctx.delete(entry)
 
-def _keep_exposed_runtime_files(repository_ctx, sysroot_dir, msvc_version, architectures):
+def _is_dotted_version(name):
+    parts = name.split(".")
+    for part in parts:
+        if not part.isdigit():
+            return False
+    return len(parts) > 1
+
+def _discover_redist_version(repository_ctx, sysroot_dir):
+    """Returns the version directory name under Contents/VC/Redist/MSVC, if any.
+
+    The redist version differs from the MSVC tools version (e.g. redist
+    14.50.35710 for tools 14.50.35717), so it has to be discovered from the
+    extracted payloads. Non-version directories (e.g. `v145`, which holds the
+    standalone `vc_redist.<arch>.exe` installers) are ignored.
+    """
+    redist_msvc_dir = repository_ctx.path("{}/Contents/VC/Redist/MSVC".format(sysroot_dir))
+    if not redist_msvc_dir.exists or not redist_msvc_dir.is_dir:
+        return None
+    versions = [
+        _basename(entry)
+        for entry in redist_msvc_dir.readdir()
+        if entry.is_dir and _is_dotted_version(_basename(entry))
+    ]
+    if len(versions) > 1:
+        fail("expected exactly one version directory under Contents/VC/Redist/MSVC in the extracted MSVC payloads, found: {}".format(sorted(versions)))
+    return versions[0] if versions else None
+
+def _redist_architectures(architectures):
+    return [arch for arch in architectures if _ARCH_TO_REDIST_PACKAGE.get(arch)]
+
+def _keep_exposed_runtime_files(repository_ctx, sysroot_dir, msvc_version, architectures, redist_version):
     sysroot_path = repository_ctx.path(sysroot_dir)
     contents_dir = repository_ctx.path("{}/Contents".format(sysroot_dir))
     vc_dir = repository_ctx.path("{}/Contents/VC".format(sysroot_dir))
@@ -198,7 +243,7 @@ def _keep_exposed_runtime_files(repository_ctx, sysroot_dir, msvc_version, archi
 
     _keep_only_children(repository_ctx, sysroot_path, ["Contents"])
     _keep_only_children(repository_ctx, contents_dir, ["VC"])
-    _keep_only_children(repository_ctx, vc_dir, ["Tools"])
+    _keep_only_children(repository_ctx, vc_dir, ["Tools", "Redist"] if redist_version else ["Tools"])
     _keep_only_children(repository_ctx, tools_dir, ["MSVC"])
     _keep_only_children(repository_ctx, msvc_dir, [msvc_version])
     _keep_only_children(
@@ -211,6 +256,30 @@ def _keep_exposed_runtime_files(repository_ctx, sysroot_dir, msvc_version, archi
         repository_ctx.path("{}/Contents/VC/Tools/MSVC/{}/lib".format(sysroot_dir, msvc_version)),
         architectures,
     )
+
+    if redist_version:
+        redist_architectures = _redist_architectures(architectures)
+        _keep_only_children(
+            repository_ctx,
+            repository_ctx.path("{}/Contents/VC/Redist".format(sysroot_dir)),
+            ["MSVC"],
+        )
+        _keep_only_children(
+            repository_ctx,
+            repository_ctx.path("{}/Contents/VC/Redist/MSVC".format(sysroot_dir)),
+            [redist_version],
+        )
+
+        _keep_only_children(
+            repository_ctx,
+            repository_ctx.path("{}/Contents/VC/Redist/MSVC/{}".format(sysroot_dir, redist_version)),
+            redist_architectures + ["debug_nonredist"],
+        )
+        _keep_only_children(
+            repository_ctx,
+            repository_ctx.path("{}/Contents/VC/Redist/MSVC/{}/debug_nonredist".format(sysroot_dir, redist_version)),
+            redist_architectures,
+        )
 
 def _msvc_runtime_repository_impl(repository_ctx):
     _check_msvc_license_requirements(repository_ctx)
@@ -266,7 +335,12 @@ def _msvc_runtime_repository_impl(repository_ctx):
     requested_version_dir = repository_ctx.path("{}/Contents/VC/Tools/MSVC/{}".format(sysroot_dir, msvc_version))
     if not requested_version_dir.exists or not requested_version_dir.is_dir:
         fail("failed to find Contents/VC/Tools/MSVC/{} in extracted MSVC payloads".format(msvc_version))
-    _keep_exposed_runtime_files(repository_ctx, sysroot_dir, msvc_version, architectures)
+
+    redist_version = _discover_redist_version(repository_ctx, sysroot_dir)
+    redist_architectures = _redist_architectures(architectures)
+    if redist_architectures and not redist_version:
+        fail("failed to find Contents/VC/Redist/MSVC/<version> in extracted MSVC payloads for architectures {}".format(redist_architectures))
+    _keep_exposed_runtime_files(repository_ctx, sysroot_dir, msvc_version, architectures, redist_version)
 
     repository_ctx.template(
         "BUILD.bazel",
@@ -274,6 +348,9 @@ def _msvc_runtime_repository_impl(repository_ctx):
         substitutions = {
             "__MSVC_RUNTIME_DIR__": sysroot_dir,
             "__MSVC_VERSION__": msvc_version,
+            # The sentinel value makes the redist globs match nothing when no
+            # redist is available (e.g. arm/arm64ec-only configurations).
+            "__VC_REDIST_VERSION__": redist_version if redist_version else "unavailable",
         },
     )
 
