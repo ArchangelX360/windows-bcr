@@ -78,6 +78,57 @@ alias(
 )
 
 filegroup(
+    name = "vc_redist_x64",
+    srcs = glob(
+        ["__MSVC_RUNTIME_DIR__/Contents/VC/Redist/MSVC/__VC_REDIST_VERSION__/x64/**/*.dll"],
+        allow_empty = True,
+    ),
+)
+
+filegroup(
+    name = "vc_redist_arm64",
+    srcs = glob(
+        ["__MSVC_RUNTIME_DIR__/Contents/VC/Redist/MSVC/__VC_REDIST_VERSION__/arm64/**/*.dll"],
+        allow_empty = True,
+    ),
+)
+
+alias(
+    name = "vc_redist",
+    actual = select({
+        ":windows_aarch64": ":vc_redist_arm64",
+        "//conditions:default": ":vc_redist_x64",
+    }),
+)
+
+# Debug CRT DLLs (vcruntime140d.dll, msvcp140d.dll, ...).
+# NOT redistributable per the Visual Studio license, for use during
+# development and testing only.
+filegroup(
+    name = "vc_redist_debug_x64",
+    srcs = glob(
+        ["__MSVC_RUNTIME_DIR__/Contents/VC/Redist/MSVC/__VC_REDIST_VERSION__/debug_nonredist/x64/**/*.dll"],
+        allow_empty = True,
+    ),
+)
+
+filegroup(
+    name = "vc_redist_debug_arm64",
+    srcs = glob(
+        ["__MSVC_RUNTIME_DIR__/Contents/VC/Redist/MSVC/__VC_REDIST_VERSION__/debug_nonredist/arm64/**/*.dll"],
+        allow_empty = True,
+    ),
+)
+
+alias(
+    name = "vc_redist_debug",
+    actual = select({
+        ":windows_aarch64": ":vc_redist_debug_arm64",
+        "//conditions:default": ":vc_redist_debug_x64",
+    }),
+)
+
+filegroup(
     name = "all_files",
     srcs = glob(
         ["**"],
