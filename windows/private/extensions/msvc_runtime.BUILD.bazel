@@ -5,6 +5,8 @@ load("@bazel_skylib//rules/directory:subdirectory.bzl", "subdirectory")
 
 package(default_visibility = ["//visibility:public"])
 
+exports_files(["versions.bzl"])
+
 config_setting(
     name = "windows_aarch64",
     constraint_values = [
