@@ -6,6 +6,9 @@
 # You may want to add additional exclusions for folders or files that users don't need.
 examples export-ignore
 
+# Keep the byte-for-byte version fixture stable on Windows checkouts.
+e2e/smoke/expected_versions.txt text eol=lf
+
 # Occasionally there's a need to "stamp" the release version into a file
 # See https://blog.aspect.build/releasing-bazel-rulesets-rust for details if you need this.
 # mylang/version.bzl export-subst
