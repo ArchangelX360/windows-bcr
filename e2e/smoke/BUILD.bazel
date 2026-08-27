@@ -42,6 +42,7 @@ write_file(
         "WINDOWS_SDK_INCLUDE_VERSION={}".format(WINDOWS_SDK_INCLUDE_VERSION),
         "",
     ],
+    newline = "unix",
 )
 
 diff_test(
