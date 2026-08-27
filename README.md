@@ -29,6 +29,24 @@ windows_sdk.configure(
 use_repo(windows_sdk, "windows_sdk")
 ```
 
+The generated repositories expose their resolved version information as public Starlark constants:
+
+```starlark
+load(
+    "@msvc_runtime//:versions.bzl",
+    "MSVC_COMPATIBILITY_VERSION",
+    "MSVC_TOOLSET_VERSION",
+    "VC_REDIST_VERSION",
+)
+load(
+    "@windows_sdk//:versions.bzl",
+    "WINDOWS_SDK_INCLUDE_VERSION",
+    "WINDOWS_SDK_VERSION",
+)
+```
+
+`MSVC_TOOLSET_VERSION` is the selected `Contents/VC/Tools/MSVC/<version>` directory. `MSVC_COMPATIBILITY_VERSION` is the corresponding compiler version accepted by Clang's `-fms-compatibility-version`. `VC_REDIST_VERSION` is discovered independently because the redistributable payload may have a different build version. `WINDOWS_SDK_VERSION` is the selected NuGet package version, while `WINDOWS_SDK_INCLUDE_VERSION` is discovered from the extracted include tree.
+
 ### About `msvc_runtime` license requirement
 
 Using files from the generated `@msvc_runtime` repository requires the machine using the `windows` module to have the right to use the MSVC (Microsoft Visual Studio C+) runtime headers and libraries.
